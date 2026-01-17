@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  affine:
+    image: ghcr.io/toeverything/affine-self-hosted:latest
+    volumes:
+      - affinedata:/app/data
+    ports:
+      - "3000:3000"
+    networks:
+      - traefik-public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true # enable traefik
+        - traefik.swarm.network=traefik-public # put it in the same network as traefik
+        - traefik.constraint-label=traefik-public # assign the same label as traefik so it can be discovered
+        - traefik.http.routers.affine.rule=Host(`affine.app.levell.ch`) # listen to port 80 for request to APP_DOMAIN (use together with the line below)
+        - traefik.http.routers.affine.entrypoints=http
+        - traefik.http.routers.affine.middlewares=https-redirect
+        - traefik.http.middlewares.affine.redirectscheme.scheme=https # redirect traffic to https
+        - traefik.http.middlewares.affine.redirectscheme.permanent=true # redirect traffic to https
+        - traefik.http.routers.affine-secured.rule=Host(`affine.app.levell.ch`) # listen to port 443 for request to APP_DOMAIN (use together with the line below)
+        - traefik.http.routers.affine-secured.entrypoints=https
+        - traefik.http.routers.affine-secured.tls.certresolver=le # use the Let's Encrypt certificate we set up earlier
+        - traefik.http.services.affine-secured.loadbalancer.server.port=3000 # ask Traefik to search for port service container
+
+networks:
+  traefik-public:
+    external: true
+
+volumes:
+  affinedata:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /srv/docker/affine
